@@ -3,6 +3,8 @@ A python script for designed to find any genomic features (genes, CDS, etc) near
 
 This program requires that an SQL database be generated from an assembly and annotation using https://github.com/daler/gffutils but is otherwise organism agnostic.
 
+If running for the first time, both --gff and --info file names are required. Paths to GFF SQLite and annotation are represented as constants under the import section. Change these paths as necessary after initial SQLite construction.
+
 ```bash
 python feature_from_snps.py -h 
 

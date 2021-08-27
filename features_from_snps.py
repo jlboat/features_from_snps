@@ -6,10 +6,16 @@ Find any genes near SNPs found to be significant in a GWAS
 """
 
 import sys
+import sqlite3
 import argparse
 import gffutils
 from tqdm import tqdm
 from collections import OrderedDict
+
+SQLITE_PATH="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" +\
+            "annotation/Sbicolor_454_v3.1.1.gene.gff3.sqlite3"
+ANNOTATION_PATH="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" +\
+            "annotation/Sbicolor_454_v3.1.1.annotation_info.txt"
 
 def parse_arguments():
     """Parse arguments passed to script"""
@@ -49,8 +55,7 @@ def parse_arguments():
             "--gff", 
             type=str, 
             required=False, 
-            default="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" + 
-            "annotation/Sbicolor_454_v3.1.1.gene.gff3.sqlite3",
+            default=SQLITE_PATH,
             help="The GFF3 file for the genome or a gffutils database.", 
             action="store")
 
@@ -75,8 +80,7 @@ def parse_arguments():
             "--info", 
             type=str, 
             required=False, 
-            default="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" + 
-            "annotation/Sbicolor_454_v3.1.1.annotation_info.txt",
+            default=ANNOTATION_PATH, 
             help="The gene info file as obtained from Phytozome (TSV).", 
             action="store")
 
@@ -112,7 +116,7 @@ def get_gene_info_dictionary(info):
 def open_gff_db(gff):
     try:
         db = gffutils.FeatureDB(gff)
-    except ValueError:
+    except sqlite3.DatabaseError:
         db = gffutils.create_db(gff, gff + ".sqlite3")
     return db
 
