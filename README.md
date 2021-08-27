@@ -8,7 +8,7 @@ python feature_from_snps.py -h
 
 usage: feature_from_snps.py [-h] --input INPUT --input-type INPUT_TYPE --output OUTPUT [--gff GFF]
                             [--distance DISTANCE] [--fdr FDR] [--info INFO]
-                            [--feature_type FEATURE_TYPE]
+                            [--feature-type FEATURE_TYPE]
 
 This script was originally designed to find any genes near SNPs found to be significant in a GWAS analysis performed in GAPIT but has since been generalize for any coordinates.
 
@@ -19,7 +19,7 @@ optional arguments:
   --fdr FDR             The significance threshold for significant SNPs. Only applicable with
                         input-type gapit.
   --info INFO           The gene info file as obtained from Phytozome (TSV).
-  --feature_type FEATURE_TYPE
+  --feature-type FEATURE_TYPE
                         The type of features desired from the annotation (i.e. gene,CDS).
 
 required arguments:

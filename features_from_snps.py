@@ -81,7 +81,7 @@ def parse_arguments():
             action="store")
 
     parser.add_argument(
-            "--feature_type",
+            "--feature-type",
             type=str,
             required=False,
             help="The type of features desired from the annotation (i.e. gene,CDS).",
