@@ -6,7 +6,7 @@ This program requires that an SQL database be generated from an assembly and ann
 ```bash
 python feature_from_snps.py -h 
 
-usage: feature_from_snps.py [-h] --input INPUT --input_type INPUT_TYPE --output OUTPUT [--gff GFF]
+usage: feature_from_snps.py [-h] --input INPUT --input-type INPUT_TYPE --output OUTPUT [--gff GFF]
                             [--distance DISTANCE] [--fdr FDR] [--info INFO]
                             [--feature_type FEATURE_TYPE]
 
@@ -17,14 +17,14 @@ optional arguments:
   --gff GFF             The GFF3 file for the genome or a gffutils database.
   --distance DISTANCE   The distance in kb from a SNP to search for genes (default: 10).
   --fdr FDR             The significance threshold for significant SNPs. Only applicable with
-                        input_type gapit.
+                        input-type gapit.
   --info INFO           The gene info file as obtained from Phytozome (TSV).
   --feature_type FEATURE_TYPE
                         The type of features desired from the annotation (i.e. gene,CDS).
 
 required arguments:
   --input INPUT         The name of the input file (CSV).
-  --input_type INPUT_TYPE
+  --input-type INPUT_TYPE
                         The type of input file: gapit, coordinate, range. Note: headers are
                         \*\*required\*\* - or first line lost. \*gapit - the unedited GAPIT output with
                         header\* \*coordinate - markerName,chromosome,position \*\*\* \*range -

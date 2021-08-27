@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 By J. Lucas Boatwright 
@@ -9,6 +8,7 @@ Find any genes near SNPs found to be significant in a GWAS
 import sys
 import argparse
 import gffutils
+from tqdm import tqdm
 from collections import OrderedDict
 
 def parse_arguments():
@@ -28,7 +28,7 @@ def parse_arguments():
             action="store")
 
     requiredNamed.add_argument(
-            "--input_type",
+            "--input-type",
             type=str,
             required=True,
             help="The type of input file: gapit, coordinate, range." + 
@@ -161,30 +161,33 @@ def find_overlapping_features(snp_groups, gff_db, gene_info, feature_type, outfi
     with open(outfile, 'w') as output:
         output.write("SNP_GROUP\tCHR\tSNP_POS\tNUM_SNPs\tGENE_ID\t" + 
                 "GENE_Start\tGENE_End\tGeneINFO\n")
-        for key, value in snp_groups.items():
+        for key, value in tqdm(snp_groups.items()):
             chromosome, position, minimum, maximum, snp_count = value
             region = "Chr{0:02d}:{1}-{2}".format(int(chromosome.lower().replace("chr","")), 
                     minimum, 
                     maximum) 
             features = []
-            for line in gff_db.region(region, featuretype=feature_type):
-                # sys.stderr.write(str(line) + "\n")
-                gene_id = ".".join(line.id.split('.')[0:2])
-                gene_start = line.start
-                gene_end = line.end
-                for feature in gene_info[gene_id]:
-                    if feature not in features:
-                        output.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key, 
-                            chromosome, 
-                            position, 
-                            snp_count, 
-                            gene_id, 
-                            gene_start,
-                            gene_end,
-                            ",".join(feature.split()[3:])
-                            )
-                            )
-                    features.append(feature)
+            try:
+                for line in gff_db.region(region, featuretype=feature_type):
+                    # sys.stderr.write(str(line) + "\n")
+                    gene_id = ".".join(line.id.split('.')[0:2])
+                    gene_start = line.start
+                    gene_end = line.end
+                    for feature in gene_info[gene_id]:
+                        if feature not in features:
+                            output.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key, 
+                                chromosome, 
+                                position, 
+                                snp_count, 
+                                gene_id, 
+                                gene_start,
+                                gene_end,
+                                ",".join(feature.split()[3:])
+                                )
+                                )
+                        features.append(feature)
+            except ValueError:
+                continue
 
 
 def main(args):
