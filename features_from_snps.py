@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-By J. Lucas Boatwright 
+By J. Lucas Boatwright
 
-Find any genes near SNPs found to be significant in a GWAS
+Find any genes near variant positions
 """
 
+import os
 import sys
 import sqlite3
 import argparse
@@ -12,85 +13,83 @@ import gffutils
 from tqdm import tqdm
 from collections import OrderedDict
 
-SQLITE_PATH="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" +\
-            "annotation/Sbicolor_454_v3.1.1.gene.gff3.sqlite3"
-ANNOTATION_PATH="/zfs/tillers/Reference_Genomes/BTx623/v3.1.1/" +\
-            "annotation/Sbicolor_454_v3.1.1.annotation_info.txt"
+SQLITE_PATH = "Sbicolor_454_v3.1.1.gene.gff3.sqlite3"
+ANNOTATION_PATH = "Sbicolor_454_v3.1.1.annotation_info.txt"
+
 
 def parse_arguments():
     """Parse arguments passed to script"""
-    parser = argparse.ArgumentParser(description="This script was " + 
-            "originally designed to find any genes near SNPs found " +
-            "to be significant in a GWAS analysis performed in GAPIT " + 
-            "but has since been generalize for any coordinates.\n\n")
+    parser = argparse.ArgumentParser(
+        description=f"This script is designed to find any genes or features "
+                    f"near variants or within genomic ranges.\n\n")
 
-    requiredNamed = parser.add_argument_group('required arguments')
+    required_named = parser.add_argument_group('required arguments')
 
-    requiredNamed.add_argument(
-            "--input", 
-            type=str, 
-            required=True, 
-            help="The name of the input file (CSV).",
-            action="store")
+    required_named.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="The name of the input file (CSV).",
+        action="store")
 
-    requiredNamed.add_argument(
-            "--input-type",
-            type=str,
-            required=True,
-            help="The type of input file: gapit, coordinate, range." + 
-            " Note: headers are **required** - or first line lost." +
-            " *gapit - the unedited GAPIT output with header*" +
-            " *coordinate - markerName,chromosome,position ***" +
-            " *range - markerName,chromosome,position,start,end*",
-            action="store")
+    required_named.add_argument(
+        "--input-type",
+        type=str,
+        required=True,
+        help=f"The type of input file: gapit, coordinate, range. " 
+             f"Note: headers are **required** - or first line lost. " 
+             f"*gapit - the unedited GAPIT output with header* " 
+             f"*coordinate - markerName,chromosome,position *** " 
+             f"*range - markerName,chromosome,position,start,end* ",
+        action="store")
 
-    requiredNamed.add_argument(
-            "--output", 
-            type=str, 
-            required=True, 
-            help="The output file to be created (TSV).", 
-            action="store")
-
-    parser.add_argument(
-            "--gff", 
-            type=str, 
-            required=False, 
-            default=SQLITE_PATH,
-            help="The GFF3 file for the genome or a gffutils database.", 
-            action="store")
+    required_named.add_argument(
+        "--output",
+        type=str,
+        required=True,
+        help="The output file to be created (TSV).",
+        action="store")
 
     parser.add_argument(
-            "--distance", 
-            type=float, 
-            required=False,
-            default=10.0,
-            help="The distance in kb from a SNP to search for genes (default: 10).", 
-            action="store")
+        "--gff",
+        type=str,
+        required=False,
+        default=SQLITE_PATH,
+        help="The GFF3 file for the genome or a gffutils database.",
+        action="store")
 
     parser.add_argument(
-            "--fdr", 
-            type=float, 
-            required=False, 
-            default=0.05,
-            help="The significance threshold for significant SNPs. Only " +
-            "applicable with input_type gapit.", 
-            action="store")
+        "--distance",
+        type=float,
+        required=False,
+        default=10.0,
+        help="The distance in kb from a SNP to search for genes (default: 10).",
+        action="store")
 
     parser.add_argument(
-            "--info", 
-            type=str, 
-            required=False, 
-            default=ANNOTATION_PATH, 
-            help="The gene info file as obtained from Phytozome (TSV).", 
-            action="store")
+        "--fdr",
+        type=float,
+        required=False,
+        default=0.05,
+        help=f"The significance threshold for associated SNPs. Only " 
+             f"applicable with input_type gapit.",
+        action="store")
 
     parser.add_argument(
-            "--feature-type",
-            type=str,
-            required=False,
-            help="The type of features desired from the annotation (i.e. gene,CDS).",
-            default="gene",
-            action="store")
+        "--info",
+        type=str,
+        required=False,
+        default=ANNOTATION_PATH,
+        help="The gene info file as obtained from Phytozome (TSV).",
+        action="store")
+
+    parser.add_argument(
+        "--feature-type",
+        type=str,
+        required=False,
+        help="The type of features desired from the annotation (i.e. gene,CDS).",
+        default="gene",
+        action="store")
 
     return parser.parse_args()
 
@@ -102,6 +101,9 @@ def file_to_list(filename):
 
 
 def get_gene_info_dictionary(info):
+    if not os.path.exists(ANNOTATION_PATH):
+        sys.stderr.write(f"Annotation file {ANNOTATION_PATH} does not exist and is required.\n")
+        sys.exit(1)
     gene_info = {}
     with open(info) as f:
         for line in f.read().splitlines():
@@ -117,7 +119,11 @@ def open_gff_db(gff):
     try:
         db = gffutils.FeatureDB(gff)
     except sqlite3.DatabaseError:
-        db = gffutils.create_db(gff, gff + ".sqlite3")
+        if os.path.exists(f"{gff}.sqlite3"):
+            sys.stderr.write(f"File {gff}.sqlite3 exists. Using existing database.\n")
+            db = gffutils.FeatureDB(f"{gff}.sqlite3")
+        else:
+            db = gffutils.create_db(gff, f"{gff}.sqlite3")
     return db
 
 
@@ -126,7 +132,7 @@ def get_significant_snps(gwas, max_fdr):
     for line in gwas:
         if not line.startswith("SNP"):
             split_line = line.split(',')
-            current_fdr = float(split_line[8]) 
+            current_fdr = float(split_line[8])
             if current_fdr <= max_fdr:
                 significant_snps.append(line)
     return significant_snps
@@ -136,40 +142,43 @@ def generate_snp_range(sig_gwas, input_type, distance):
     snp_groups = OrderedDict()
 
     for x, line in enumerate(sig_gwas):
-        #snp_group = x + 1
         split_line = line.split(',')
         snp_group = split_line[0]
         chromosome = split_line[1]
         position = int(split_line[2])
         if input_type == "range":
             snp_groups[snp_group] = [
-                    chromosome,
-                    position,
-                    int(split_line[3]),
-                    int(split_line[4]),
-                    1]
+                chromosome,
+                position,
+                int(split_line[3]),
+                int(split_line[4])]
         elif input_type in ["gapit", "coordinate"]:
             snp_groups[snp_group] = [
-                    chromosome,
-                    position,
-                    position - distance,
-                    position + distance,
-                    1]
+                chromosome,
+                position,
+                position - distance,
+                position + distance]
     return snp_groups
 
 
+def coordinates_to_chromosome_range(chromosome, minimum, maximum):
+    chromosome_range = "Chr{0:02d}:{1}-{2}".format(
+        int(chromosome.lower().replace("chr", "")),
+        minimum,
+        maximum)
+    return chromosome_range
+
+
 def find_overlapping_features(snp_groups, gff_db, gene_info, feature_type, outfile):
-    """For each SNP group, search the gff3 (gene) file for any features that 
-    overlap the range. Find the feature in the info file, and calculate the 
+    """For each SNP group, search the gff3 (gene) file for any features that
+    overlap the range. Find the feature in the info file, and calculate the
     distance from the actual SNP"""
     with open(outfile, 'w') as output:
-        output.write("SNP_GROUP\tCHR\tSNP_POS\tNUM_SNPs\tGENE_ID\t" + 
-                "GENE_Start\tGENE_End\tGeneINFO\n")
+        output.write("SNP_GROUP\tCHR\tSNP_POS\tGENE_ID\t" +
+                     "GENE_Start\tGENE_End\tGeneINFO\n")
         for key, value in tqdm(snp_groups.items()):
-            chromosome, position, minimum, maximum, snp_count = value
-            region = "Chr{0:02d}:{1}-{2}".format(int(chromosome.lower().replace("chr","")), 
-                    minimum, 
-                    maximum) 
+            chromosome, position, minimum, maximum = value
+            region = coordinates_to_chromosome_range(chromosome, minimum, maximum)
             features = []
             try:
                 for line in gff_db.region(region, featuretype=feature_type):
@@ -179,47 +188,41 @@ def find_overlapping_features(snp_groups, gff_db, gene_info, feature_type, outfi
                     gene_end = line.end
                     for feature in gene_info[gene_id]:
                         if feature not in features:
-                            output.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(key, 
-                                chromosome, 
-                                position, 
-                                snp_count, 
-                                gene_id, 
+                            output.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(
+                                key,
+                                chromosome,
+                                position,
+                                gene_id,
                                 gene_start,
                                 gene_end,
                                 ",".join(feature.split()[3:])
-                                )
-                                )
+                            )
+                            )
                         features.append(feature)
             except ValueError:
                 continue
 
 
-def main(args):
-    """Main exection function"""
-    input_file = file_to_list(args.input)
-    distance   = int(args.distance * 1000)
-    input_type = (args.input_type).lower()
-    if input_type == "gapit":
-        sig_gwas = get_significant_snps(input_file, args.fdr)
-    elif input_type in ["coordinate", "range"]:
-        sig_gwas = input_file[1:]
-    else:
-        sys.stderr.write("Input type {0} not recognized.".format(args.input_type))
-        sys.exit(1)
-
-    snp_groups = generate_snp_range(sig_gwas, input_type, distance)
-
-    gff_db     = open_gff_db(args.gff)
-    info       = get_gene_info_dictionary(args.info)
-
-    find_overlapping_features(snp_groups, 
-            gff_db, 
-            info, 
-            args.feature_type, 
-            args.output)
-
-
 if __name__ == "__main__":
     args = parse_arguments()
-    main(args)
+    input_file = file_to_list(args.input)
+    radial_distance = int(args.distance * 1000)
+    input_format = args.input_type.lower()
+    if input_format == "gapit":
+        variant_positions = get_significant_snps(input_file, args.fdr)
+    elif input_format in ["coordinate", "range"]:
+        variant_positions = input_file[1:]
+    else:
+        sys.stderr.write(f"Input type {args.input_type} not recognized.\n")
+        sys.exit(1)
 
+    snp_ranges = generate_snp_range(variant_positions, input_format, radial_distance)
+
+    gff_database = open_gff_db(args.gff)
+    gene_information = get_gene_info_dictionary(args.info)
+
+    find_overlapping_features(snp_ranges,
+                              gff_database,
+                              gene_information,
+                              args.feature_type,
+                              args.output)
